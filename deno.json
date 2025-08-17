@@ -1,7 +1,8 @@
 {
+  "version": "1.2",
   "tasks": {
-    "dev": "deno run --allow-read --allow-import --allow-run --allow-write src/main.ts",
-    "build": "deno compile --allow-read --allow-import --allow-run --allow-write --output ./output/SimplyBackedUp src/main.ts"
+    "dev": "deno run --allow-read --allow-import --allow-run --allow-env --allow-write src/main.ts",
+    "build": "deno compile --allow-read --allow-import --allow-run --allow-write --allow-env --output ./output/SimplyBackedUp src/main.ts"
   },
   "imports": {
     "@cfa/gitignore-parser": "jsr:@cfa/gitignore-parser@^0.1.4",

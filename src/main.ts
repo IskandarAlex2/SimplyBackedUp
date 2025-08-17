@@ -3,6 +3,11 @@ import * as path from "@std/path";
 import * as pretty_logs from "saihex/pretty_logs";
 import * as gitignore from "@cfa/gitignore-parser";
 
+if (Deno.args.includes("--version")) {
+  pretty_logs.log("SimplyBackedUp by IskandarAlex2 - v1.2")
+  Deno.exit(0);
+}
+
 const abortSignal = new AbortController();
 
 Deno.addSignalListener("SIGINT", () => {
@@ -16,10 +21,12 @@ pretty_logs.log(`Working dir: ${working_dir}`);
 
 const exclusion_map: Map<string, string[]> = new Map();
 
-for await (const dirEntry of walk(working_dir, {
-  exts: [".backupignore"],
-  includeDirs: false,
-})) {
+for await (
+  const dirEntry of walk(working_dir, {
+    exts: [".backupignore"],
+    includeDirs: false,
+  })
+) {
   const parenting_dir = path.dirname(dirEntry.path);
   const ignore_file_contents = await Deno.readTextFile(dirEntry.path);
 
@@ -27,7 +34,11 @@ for await (const dirEntry of walk(working_dir, {
   const ignores: string[] = [];
 
   for await (const dirEntry2 of walk(parenting_dir, { includeDirs: true })) {
-    const localPath = dirEntry2.path.replace(`${parenting_dir}/`, "");
+    let localPath = dirEntry2.path.replace(`${parenting_dir}/`, "");
+
+    if (dirEntry2.isDirectory && !localPath.endsWith("/")) {
+      localPath += "/";
+    }
 
     if (!ignoredfiles.denies(localPath)) {
       continue;
@@ -52,7 +63,7 @@ for await (const dirEntry of walk(working_dir, {
 
   console.log("\n");
   pretty_logs.log(
-    "Compressing may take a while. Ensure all programs that are writing to the files are turned off to avoid file corruption."
+    "Compressing may take a while. Ensure all programs that are writing to the files are turned off to avoid file corruption.",
   );
   const shouldProceed = confirm("Do you want to proceed?");
 
@@ -75,22 +86,34 @@ for (const [dir, ignoredFiles] of exclusion_map) {
 
 //
 
-const archiveName = `backup-${new Date()
-  .toISOString()
-  .replace(/[:.]/g, "-")}.tar.gz`;
+const archiveName = `backup-${
+  new Date()
+    .toISOString()
+    .replace(/[:.]/g, "-")
+}.tar.gz`;
 
 const archiveParentDir = prompt(
   "Select a directory to save the tarball (avoid backing up into itself):",
-  path.dirname(working_dir)
+  path.dirname(working_dir),
 );
 const archivePath = path.join(
   archiveParentDir ?? path.dirname(working_dir),
-  archiveName
+  archiveName,
 );
 
 pretty_logs.log(`Backup archive will be saved to: ${archivePath}`);
 
-const excludeFilePath = path.join(Deno.makeTempDirSync(), `backup-exclude-${Deno.pid}.list`);
+const tmpDir = Deno.env.get("TMPDIR") ??
+               Deno.env.get("TEMP") ??
+               Deno.env.get("TMP") ??
+               "/tmp";
+const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+
+const excludeFilePath = path.join(
+  tmpDir,
+  `backup-exclude-${timestamp}.list`,
+);
+
 await Deno.writeTextFile(excludeFilePath, tarExcludes.join("\n"));
 
 const tarCommand = [
@@ -121,7 +144,7 @@ const decoder = new TextDecoder();
 async function streamOutput(
   reader: ReadableStreamDefaultReader<Uint8Array>,
   label: string,
-  warning: boolean
+  warning: boolean,
 ) {
   while (true) {
     const { value, done } = await reader.read();
